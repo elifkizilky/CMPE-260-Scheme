@@ -1,0 +1,16 @@
+#lang racket
+(define (list-to-hash lst proc)
+  (define (iter remaining result)
+    (cond
+      [(null? remaining) result]
+      [else
+       (let* ([current (car remaining)]
+              [value (proc current)])
+         (iter (cdr remaining) (hash-set result current value)))]))
+  (iter lst (hash)))
+
+(define (square n)
+  (* n n))
+
+(define input-list '(1 2 3 4 5))
+(define result-hash (list-to-hash input-list square))
