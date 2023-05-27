@@ -175,19 +175,20 @@
    (hash-to-list (map (lambda (expr) (eval-expr expr state)) list))))
 
 
-
-
 (define eval-expr (lambda (expr state) 
     (if (list? expr) ; expression is a list
-       (cond  ((eq? (car expr) ':=) (eval (append expr (list state))))
-               ((eq? (car expr) 'if:) (eval (append expr (list state))))
-               ((eq? (car expr) 'while:) (eval (append expr (list state))))
+       (cond  ((eq? (car expr) ':=) (:= (cadr expr) (caddr expr) state))
+               ((eq? (car expr) 'if:) (if: (cadr expr) (caddr expr) (cadddr expr) state))
+               ((eq? (car expr) 'while:) (while: (cadr expr) (caddr expr) state))
                ((eq? (car expr) 'func) (eval (append expr (list state))))
                ((eq? (car expr) 'lambda)(hash-set state '-r (eval expr)))
                ((symbol? (car expr))  (hash-set state '-r (eval (map-eval expr state)))); map-eval olacak
                (else (display "invalid operation")))
        (put state '-r (get state expr))   
 )))
+
+
+
 
 (define hash-to-list
   (lambda (list)

@@ -68,16 +68,16 @@
 (define empty-state (hash))
 
 ; 2. get (5 points)
-(define get (lambda (state var) 
+(define get (lambda (state var)
     (if (hash-has-key? state var) ;if variable in the hash table, evaluate it
-        (eval (hash-ref state var))
+        (hash-ref state var) ; (eval (hash-ref state var))
         (eval var) ; if not, just evaluate the variable
     )))
 
 
 ; 3. put (5 points)
 (define put (lambda (state var val) 
-(hash-set state var (get state val))
+(if (list? val) (hash-set state var val) (hash-set state var (get state val)))
 ))
 
 
@@ -95,34 +95,58 @@
     (let* ([result (eval-expr test-expr state)]
            [condition (hash-ref result '-r)])
            (if condition
-              (map (lambda (expr) (eval-expr expr state)) then-exprs)
-              (map (lambda (expr) (eval-expr expr state)) else-exprs)))))
+              (eval-exprs then-exprs state)
+              (eval-exprs else-exprs state)))))
 
 
 ; 6. while: (15 points)
 ;(define while: 0)
 (define while:
   (lambda (test-expr body-exprs state)
-    (let ([condition test-expr])
+    (let* ([state (eval-expr test-expr state)]
+           [condition (hash-ref state '-r)])
       (if condition
-          (let ([new-state (eval-body body-exprs state)])
+          (let ([new-state (evaluate-body body-exprs state)])
             (while: test-expr body-exprs new-state))
           state))))
 
-(define eval-body
+(define evaluate-body
   (lambda (body-exprs state)
     (cond
       [(null? body-exprs) state]
       [else
-       (let ([new-state (eval (car body-exprs))])
-         (eval-body (cdr body-exprs) new-state))])))
-
+       (let ([new-state (eval-expr (car body-exprs) state)])
+         (evaluate-body (cdr body-exprs) new-state))])))
 
 ; 7. func (15 points)
-(define func 0)
+
+(define func  (lambda (params body-exprs state)
+    (let ([my-func (lambda args
+                     (let ([new-state (bind-together params args state)])
+                       (get (eval-exprs body-exprs new-state ) '-r))
+        )])
+      (put state '-r my-func)
+      )))
+
+;(define func  (lambda (params body-exprs state)
+ ;   (put state '-r (lambda args
+  ;      (eval-exprs body-exprs (bind-together params args state))))))
 
 
+;first, map list list1 list2 --> '((a 1) (b 2) (c 3) (d 4))
+;second, (apply append (map list list1 list2)) --> '(a 1 b 2 c 3 d 4)
+;third, (apply hash (apply append (map list list1 list2))) --> '#hash((a . 1) (b . 2) (c . 3) (d . 4))
 
+;(define bind-together (lambda (param arg)
+ ;    (apply hash (apply append (map list list1 list2))
+;)))
+
+
+(define bind-together (lambda (param arg state)
+  (if (null? param)
+      state
+      (put (bind-together (cdr param) (cdr arg) state) (car param) (car arg)))  
+   ))
 
 
 (define hash-to-list
@@ -137,13 +161,13 @@
 ; 8. eval-expr (20 points)
 (define eval-expr (lambda (expr state) 
     (if (list? expr) ; expression is a list
-       (cond  ((eq? (car expr) ':=) (eval (append expr (list state))))
-               ((eq? (car expr) 'if:) (eval (append expr (list state))))
-               ((eq? (car expr) 'while:) (eval (append expr (list state))))
-               ((eq? (car expr) 'func) (eval (append expr (list state))))
+       (cond  ((eq? (car expr) ':=) (:= (cadr expr) (caddr expr) state))
+               ((eq? (car expr) 'if:) (if: (cadr expr) (caddr expr) (cadddr expr) state))
+               ((eq? (car expr) 'while:) (while: (cadr expr) (caddr expr) state))
+               ((eq? (car expr) 'func) (func (cadr expr) (caddr expr) state ))
                ((eq? (car expr) 'lambda)(hash-set state '-r (eval expr)))
-               ((symbol? (car expr))  (hash-set state '-r (eval (map-eval expr state)))); map-eval olacak
-               (else (display "invalid operation")))
+               ((procedure? (get (eval-expr (car expr) state) '-r))  (hash-set state '-r (apply (get (eval-expr (car expr) state) '-r) (map-eval (cdr expr) state)))); map-eval olacak
+               (else hash-set state '-r expr )) ; just a list
        (put state '-r (get state expr))   
 )))
 
